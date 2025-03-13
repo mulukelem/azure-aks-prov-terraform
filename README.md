@@ -1,178 +1,68 @@
-# TERRRAFORM-AKS-PROV
-This is a POC AKS cluster deployment using Terraform
+AZURE AKS PROVISIONING USING TERRAFORM :
 
-# Terraform AKS Provisioning
+1. Define the Required Providers
+Defines the necessary provider required for deploying resources. The azurerm provider is specified with a version to ensure compatibility with Azure services.
 
-This repository contains Terraform configurations to provision an Azure Kubernetes Service (AKS) cluster along with necessary network resources.
+2. Configure the Azure Provider
+Configures the Microsoft Azure provider, enabling Terraform to interact with Azure services. It includes default features required for managing Azure resources.
 
-## Prerequisites
-- Terraform 1.0.0 or later
-- Azure CLI
-- An Azure subscription
+3. Create a Resource Group
+Defines a resource group, which acts as a container for managing related Azure resources. The resource group is created in a specified location and tagged for identification.
 
-## Introduction
-This Terraform configuration provisions a resource group, virtual network, subnet, network security group, public IP, network interface, and an AKS cluster in Microsoft Azure.
+4. Create a Virtual Network
+Creates a virtual network (VNet) within the resource group. This VNet allows resources to communicate securely within an isolated network.
 
-## Steps
+5. Create a Subnet
+Defines a subnet within the virtual network. The subnet segments the network, allowing different Azure services to be logically grouped.
 
-1. **Clone the repository**
-    git clone https://github.com/mulukelem/terraform-aks-prov.git
-    cd terraform-aks-prov
-   ```
-2. **Initialize Terraform**
+6. Create a Network Security Group (NSG)
+Deploys a Network Security Group (NSG) to control inbound and outbound traffic for network resources. The NSG is assigned to the resource group.
 
-       terraform init
-    ```
-4. **Create a `terraform.tfvars` file**
+7. Create a Network Security Rule
+Defines a security rule within the NSG to allow or restrict specific types of traffic based on direction, protocol, and port ranges.
 
-    Create a `terraform.tfvars` file in the same directory with the following content:
+8. Associate the NSG with the Subnet
+Links the Network Security Group (NSG) to the previously created subnet, ensuring traffic is filtered according to the defined security rules.
 
-    ```hcl
-    resource_group_name = "your_resource_group_name"
-    location = "your_location"
-    tags = {
-      environment = "poc"
-    }
-    azurerm_virtual_network = "your_virtual_network_name"
-    azurerm_subnet = "your_subnet_name"
-    azurerm_network_security_group = "your_network_security_group_name"
-    azurerm_network_security_rule = "your_network_security_rule_name"
-    ```
+9. Create a Public IP Address
+Allocates a dynamic public IP address, which can be assigned to a virtual machine or other network resources that require external access.
 
-5. **Apply the Terraform configuration**
+10. Create a Network Interface (NIC)
+Creates a Network Interface (NIC) that enables a virtual machine to communicate within the virtual network. It includes private and public IP configurations.
 
-    terraform apply
-    ```
+11. Generate an SSH Key Pair
+Creates an RSA-based SSH key pair for secure authentication when accessing virtual machines or Kubernetes clusters.
 
-    Confirm the apply with `yes`.
+12. Create an Azure Kubernetes Cluster (AKS)
+Deploys an Azure Kubernetes Service (AKS) cluster with a specified version and node pool. The cluster is assigned a system identity for managing resources.
 
-## Resources
+13. Output Kubernetes Configuration
+Provides the Kubernetes cluster configuration, including the client certificate and kubeconfig file, allowing secure access to the AKS cluster.
 
-The following resources are created by this Terraform configuration:
 
-- **Azure Resource Group**
+TO CONNECT TO AZURE PORTAL FROM GITHUB
+Create a service principal and configure its access to Azure resources, and extract the authentication info below.
+az ad sp create-for-rbac --name "sol-aks-poc" --role="Contributor" --scopes="/subscriptions/my-subscription-id" --sdk-auth
 
-  resource "azurerm_resource_group" "poc-rg" {
-    name     = "${var.resource_group_name}"
-    location = "${var.location}"
-    tags     = "${var.tags}"
-  }
-
-- **Azure Virtual Network
-- 
-  resource "azurerm_virtual_network" "poc-vn" {
-  name                = "${var.azurerm_virtual_network}"
-  resource_group_name = azurerm_resource_group.poc-rg.name
-  location            = "${var.location}"
-  address_space       = ["10.0.0.0/16"]
-
+Add the below in Azure-CREDENTIAL to authenticate to azure portal
+{
+  "clientId": "******************************************",
+  "clientSecret": "**************************************",
+  "subscriptionId": "*************************************",
+  "tenantId": "*******************************************"
 }
 
-- **Azure Subnet
-resource "azurerm_subnet" "poc-subnet" {
-  name                 = "${var.azurerm_subnet}"
-  resource_group_name  = azurerm_resource_group.poc-rg.name
-  virtual_network_name = azurerm_virtual_network.poc-vn.name
-  address_prefixes     = ["10.0.1.0/24"]
-}
+Get the RESOURCE GROUP and CLUSTER NAME
+$ az group list
 
-- **Azure Network Security Group
-resource "azurerm_network_security_group" "poc-nsg" {
-  name                = "${var.azurerm_network_security_group}"
-  location            = "${var.location}"
-  resource_group_name = azurerm_resource_group.poc-rg.name
+GET CREDENTIALS TO VIEW K8s NODES AND PODS
+az aks get-credentials --resource-group resource_group_name --name kubernetes_cluster_name
 
-  tags = {
-    environment = "poc"
-  }
-}
+VERIFY
+kubectl get nodes
+kubectl get pods -A
+kubectl get svc
 
-- **Azure Network Security Rule
-resource "azurerm_network_security_rule" "poc-nsr" {
-  name                        = "${var.azurerm_network_security_rule}"
-  priority                    = 100
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "*"
-  source_port_range           = "*"
-  destination_port_range      = "*"
-  source_address_prefix       = "*"
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.poc-rg.name
-  network_security_group_name = azurerm_network_security_group.poc-nsg.name
-}
 
-- **Azure Subnet Network Security Group Association
-resource "azurerm_subnet_network_security_group_association" "poc-sga" {
-  subnet_id                 = azurerm_subnet.poc-subnet.id
-  network_security_group_id = azurerm_network_security_group.poc-nsg.id
-}
-
-- **Azure Public IP
-resource "azurerm_public_ip" "poc-ip" {
-  name                = "sol-poc-ip"
-  resource_group_name = azurerm_resource_group.poc-rg.name
-  location            = "${var.location}"
-  allocation_method   = "Dynamic"
-
-  tags = {
-    environment = "poc"
-  }
-}
-
-- **Azure Network Interface
-resource "azurerm_network_interface" "poc-nic" {
-  name                = "sol-poc-nic"
-  location            = "${var.location}"
-  resource_group_name = azurerm_resource_group.poc-rg.name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.poc-subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.poc-ip.id
-  }
-}
-
-- **TLS Private Key
-resource "tls_private_key" "poc_ssh" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-- **Azure Kubernetes Service (AKS) Cluster
-resource "azurerm_kubernetes_cluster" "aks-cluster" {
-  name       = "aks"
-  location   = azurerm_resource_group.poc-rg.location
-  dns_prefix = "aks"
-
-  resource_group_name = azurerm_resource_group.poc-rg.name
-  kubernetes_version  = "1.30.0"
-
-  default_node_pool {
-    name       = "aks"
-    node_count = "1"
-    vm_size    = "Standard_D2s_v3"
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-}
-
-- **Output Client Certificate
-output "client_certificate" {
-  value     = azurerm_kubernetes_cluster.aks-cluster.kube_config[0].client_certificate
-  sensitive = true
-}
-
-- **Output Kube Config
-output "kube_config" {
-  value = azurerm_kubernetes_cluster.aks-cluster.kube_config_raw
-  sensitive = true
-}
-
-After running the above steps, you will have a fully functional AKS cluster along with the necessary network resources provisioned in your Azure subscription. 
-You can manage and interact with your AKS cluster using standard Kubernetes tools like kubectl.
 
 
