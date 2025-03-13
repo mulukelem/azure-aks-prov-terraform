@@ -8,7 +8,7 @@ terraform {
   }
 }
 
-# Configure the Microsoft Azure Provider (required) - Test
+# Configure the Microsoft Azure Provider (required)-Test
 provider "azurerm" {
   features {}
 }
