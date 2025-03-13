@@ -14,7 +14,7 @@ provider "azurerm" {
 }
 
 
-# Create a resource group
+# Create a resource group - Proof of Concept (POC)
 resource "azurerm_resource_group" "poc-rg" {
   name     = "${var.resource_group_name}"
   location = "${var.location}"
